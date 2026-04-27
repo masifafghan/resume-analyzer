@@ -1,44 +1,40 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import UploadBox from "../components/UploadBox";
 
 export default function Upload() {
   const [file, setFile] = useState(null);
   const navigate = useNavigate();
 
-  const handleUpload = () => {
+  const handleSubmit = async () => {
     if (!file) return;
-    // later: send to backend
-    navigate("/result");
+
+    const formData = new FormData();
+    formData.append("resume", file);
+
+    const res = await fetch("http://localhost:5000/api/analyze", {
+      method: "POST",
+      body: formData,
+    });
+
+    const data = await res.json();
+
+    // send data to result page
+    navigate("/result", { state: data });
   };
 
   return (
-    <div className="flex justify-center items-center h-[80vh]">
-      <div className="bg-white shadow-lg rounded-2xl p-8 w-96 text-center">
+    <div className="max-w-3xl mx-auto mt-20 text-center">
+      <h2 className="text-3xl font-bold mb-6">Upload Resume</h2>
 
-        <h2 className="text-xl font-semibold mb-4">
-          Upload Your Resume
-        </h2>
+      <UploadBox onFileSelect={setFile} />
 
-        <input
-          type="file"
-          onChange={(e) => setFile(e.target.files[0])}
-          className="mb-4"
-        />
-
-        {file && (
-          <p className="text-sm text-gray-600 mb-2">
-            {file.name}
-          </p>
-        )}
-
-        <button
-          onClick={handleUpload}
-          className="bg-blue-600 text-white px-5 py-2 rounded-xl hover:bg-blue-700"
-        >
-          Upload & Analyze
-        </button>
-
-      </div>
+      <button
+        onClick={handleSubmit}
+        className="mt-6 bg-blue-600 text-white px-6 py-2 rounded-xl"
+      >
+        Analyze Resume
+      </button>
     </div>
   );
 }
