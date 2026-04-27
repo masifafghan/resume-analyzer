@@ -2,11 +2,17 @@ import express from "express";
 import multer from "multer";
 import fs from "fs";
 import pdfParse from "pdf-parse";
+import OpenAI from "openai";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const router = express.Router();
-
-// File storage
 const upload = multer({ dest: "uploads/" });
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 router.post("/analyze", upload.single("resume"), async (req, res) => {
   try {
@@ -15,25 +21,48 @@ router.post("/analyze", upload.single("resume"), async (req, res) => {
     // Read PDF
     const dataBuffer = fs.readFileSync(filePath);
     const pdfData = await pdfParse(dataBuffer);
+    const resumeText = pdfData.text;
 
-    const text = pdfData.text;
+    // 🔥 Send to OpenAI
+    const aiResponse = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: "You are a professional resume analyzer."
+        },
+        {
+          role: "user",
+          content: `
+Analyze this resume and return JSON only:
 
-    // 🔥 TEMP: Dummy analysis (replace with AI later)
-    const response = {
-      score: 7,
-      skills: ["JavaScript", "React", "CSS"],
-      missing: ["Redux", "Testing"],
-      suggestions: [
-        "Add measurable achievements",
-        "Improve summary section"
+{
+  "score": number (0-10),
+  "skills": [],
+  "missing": [],
+  "suggestions": [],
+  "jobs": []
+}
+
+Resume:
+${resumeText}
+          `
+        }
       ],
-      jobs: ["Frontend Developer", "Junior Developer"]
-    };
+      temperature: 0.7
+    });
 
-    res.json(response);
+    // Extract AI text
+    const rawText = aiResponse.choices[0].message.content;
+
+    // Convert string → JSON
+    const parsed = JSON.parse(rawText);
+
+    res.json(parsed);
 
   } catch (error) {
-    res.status(500).json({ error: "Error analyzing resume" });
+    console.error(error);
+    res.status(500).json({ error: "AI analysis failed" });
   }
 });
 
