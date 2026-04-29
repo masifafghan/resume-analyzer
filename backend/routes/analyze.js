@@ -1,11 +1,13 @@
 import express from "express";
 import multer from "multer";
 import fs from "fs";
-import pdfParse from "pdf-parse";
+import pkg from "pdf-parse";
 import OpenAI from "openai";
 import dotenv from "dotenv";
 
 dotenv.config();
+
+const pdfParse = pkg;
 
 const router = express.Router();
 const upload = multer({ dest: "uploads/" });
@@ -15,29 +17,35 @@ const openai = new OpenAI({
 });
 
 router.post("/analyze", upload.single("resume"), async (req, res) => {
-  try {
-    const filePath = req.file.path;
+  let filePath;
 
-    // Read PDF
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    filePath = req.file.path;
+
+    // 📄 Read PDF
     const dataBuffer = fs.readFileSync(filePath);
     const pdfData = await pdfParse(dataBuffer);
-    const resumeText = pdfData.text;
+    const resumeText = pdfData.text || "";
 
-    // 🔥 Send to OpenAI
+    // 🤖 OpenAI Request
     const aiResponse = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {
           role: "system",
-          content: "You are a professional resume analyzer."
+          content: "You are a professional resume analyzer. Return ONLY valid JSON.",
         },
         {
           role: "user",
           content: `
-Analyze this resume and return JSON only:
+Analyze this resume and return ONLY JSON (no markdown, no text):
 
 {
-  "score": number (0-10),
+  "score": number,
   "skills": [],
   "missing": [],
   "suggestions": [],
@@ -46,23 +54,47 @@ Analyze this resume and return JSON only:
 
 Resume:
 ${resumeText}
-          `
-        }
+          `,
+        },
       ],
-      temperature: 0.7
+      temperature: 0.7,
     });
 
-    // Extract AI text
-    const rawText = aiResponse.choices[0].message.content;
+    let rawText = aiResponse.choices?.[0]?.message?.content || "";
 
-    // Convert string → JSON
-    const parsed = JSON.parse(rawText);
+    // 🧹 Clean response (VERY IMPORTANT)
+    rawText = rawText
+      .replace(/```json/g, "")
+      .replace(/```/g, "")
+      .trim();
 
-    res.json(parsed);
+    let parsed;
+
+    try {
+      parsed = JSON.parse(rawText);
+    } catch (err) {
+      console.log("❌ Invalid AI response:", rawText);
+
+      return res.status(500).json({
+        error: "AI returned invalid JSON",
+        raw: rawText,
+      });
+    }
+
+    return res.json(parsed);
 
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "AI analysis failed" });
+    console.error("Server Error:", error);
+
+    return res.status(500).json({
+      error: "AI analysis failed",
+    });
+
+  } finally {
+    // 🧹 Always delete uploaded file
+    if (filePath && fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
   }
 });
 
