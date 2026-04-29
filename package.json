@@ -2,6 +2,8 @@
   "name": "resumeanalyzer",
   "version": "0.1.0",
   "private": true,
+  "homepage": "/",
+  "proxy": "http://localhost:5000",
   "dependencies": {
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
@@ -23,7 +25,8 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "watch": "npm-watch"
   },
   "eslintConfig": {
     "extends": [
@@ -55,5 +58,10 @@
   "bugs": {
     "url": "https://github.com/masifafghan/resume-analyzer/issues"
   },
-  "homepage": "https://github.com/masifafghan/resume-analyzer#readme"
+  "devDependencies": {
+    "autoprefixer": "^10.5.0",
+    "npm-watch": "^0.13.0",
+    "postcss": "^8.5.12",
+    "tailwindcss": "^4.2.4"
+  }
 }
